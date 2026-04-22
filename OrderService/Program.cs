@@ -1,23 +1,31 @@
+using Microsoft.EntityFrameworkCore;
+using OrderService.Data;
+using OrderService.Services;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-
 builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+builder.Services.AddDbContext<OrderDbContext>(options =>
+    options.UseSqlite("Data Source=orders.db"));
+
+var productServiceUrl = builder.Configuration["ProductService:BaseUrl"] ?? "http://localhost:5001";
+builder.Services.AddHttpClient<ProductServiceClient>(client =>
+{
+    client.BaseAddress = new Uri(productServiceUrl);
+});
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+using (var scope = app.Services.CreateScope())
 {
-    app.MapOpenApi();
+    var db = scope.ServiceProvider.GetRequiredService<OrderDbContext>();
+    db.Database.EnsureCreated();
 }
 
-app.UseHttpsRedirection();
-
-app.UseAuthorization();
-
+app.UseSwagger();
+app.UseSwaggerUI();
 app.MapControllers();
-
 app.Run();
