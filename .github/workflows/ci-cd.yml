@@ -1,0 +1,49 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore ProductService
+        run: dotnet restore ./ProductService/ProductService.csproj
+
+      - name: Build ProductService
+        run: dotnet build ./ProductService/ProductService.csproj -c Release --no-restore
+
+      - name: Restore OrderService
+        run: dotnet restore ./OrderService/OrderService.csproj
+
+      - name: Build OrderService
+        run: dotnet build ./OrderService/OrderService.csproj -c Release --no-restore
+
+      - name: Build Docker images
+        run: docker compose build
+
+  deploy-product-service:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Render
+        run: |
+          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+          echo "Deploy triggered on Render"
